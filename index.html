@@ -19,6 +19,8 @@
     --p-high: #e5484d;
     --p-med: #f5a623;
     --p-low: #30a46c;
+    --ok: #30a46c;
+    --warn: #f5a623;
   }
   [data-theme="dark"] {
     --bg: #15161a;
@@ -34,6 +36,8 @@
     --p-high: #ff6369;
     --p-med: #ffb84d;
     --p-low: #4cc38a;
+    --ok: #4cc38a;
+    --warn: #ffb84d;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -136,6 +140,7 @@
   }
   .add-btn:hover { filter: brightness(1.07); }
   .add-btn:active { transform: scale(.96); }
+  .add-btn:disabled { opacity: .5; cursor: default; }
 
   /* ---- toolbar ---- */
   .toolbar {
@@ -147,7 +152,7 @@
     flex-wrap: wrap;
   }
   .search {
-    flex: 1 1 140px;
+    flex: 1 1 120px;
     min-width: 0;
     font-size: 14px;
     padding: 8px 12px;
@@ -172,6 +177,33 @@
   }
   .filter:hover { background: var(--surface-2); }
   .filter.active { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---- sync status pill ---- */
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: filter .15s ease;
+  }
+  .status:hover { filter: brightness(.97); }
+  .status .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-soft);
+    flex: none;
+  }
+  .status[data-state="synced"] .dot { background: var(--ok); }
+  .status[data-state="connecting"] .dot { background: var(--warn); animation: blink 1s infinite; }
+  .status[data-state="error"] .dot { background: var(--danger); }
+  @keyframes blink { 50% { opacity: .25; } }
 
   /* ---- list ---- */
   ul { list-style: none; }
@@ -297,6 +329,102 @@
     font-size: 11px;
     font-family: inherit;
   }
+
+  /* ---- sync settings modal ---- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    overflow-y: auto;
+    z-index: 50;
+    animation: fade .15s ease;
+  }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .overlay[hidden] { display: none; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 460px;
+    padding: 22px;
+  }
+  .modal h2 { font-size: 19px; font-weight: 700; }
+  .modal-sub { color: var(--text-soft); font-size: 13px; margin: 4px 0 16px; }
+  .modal label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 12px 0 5px;
+  }
+  .modal label .muted { color: var(--text-soft); font-weight: 400; }
+  .modal input[type="text"] {
+    width: 100%;
+    font-size: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface-2);
+    color: var(--text);
+    outline: none;
+  }
+  .modal input[type="text"]:focus { border-color: var(--accent); }
+  .modal .row { display: flex; gap: 6px; }
+  .modal .row input { flex: 1; }
+  .mini {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .mini:hover { filter: brightness(.97); }
+  .cfg-msg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  .cfg-msg.err { color: var(--danger); }
+  .cfg-msg.ok { color: var(--ok); }
+  .modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .ghost:hover { background: var(--surface-2); }
+  .ghost.danger { color: var(--danger); border-color: var(--danger); }
+  .ghost:disabled { opacity: .4; cursor: default; }
+  .help { margin-top: 18px; font-size: 13px; }
+  .help summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  .help ol { margin: 10px 0 0 18px; color: var(--text-soft); }
+  .help li { margin-bottom: 7px; }
+  .help a { color: var(--accent); }
+  .help pre {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 11px;
+    overflow-x: auto;
+    margin: 6px 0;
+    white-space: pre;
+  }
 </style>
 </head>
 <body>
@@ -322,6 +450,9 @@
     </div>
 
     <div class="toolbar">
+      <button class="status" id="statusPill" data-state="local" title="Cloud sync settings">
+        <span class="dot"></span><span id="statusText">Local</span>
+      </button>
       <input type="text" class="search" id="searchInput" placeholder="Search…" autocomplete="off" />
       <div class="filters">
         <button class="filter active" data-filter="all">All</button>
@@ -343,38 +474,131 @@
   </p>
 </div>
 
+<!-- ---- cloud sync settings ---- -->
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Cloud sync settings">
+    <h2>Cloud Sync</h2>
+    <p class="modal-sub">
+      Sync your tasks across all your devices with a free Supabase database.
+      Leave this off to keep tasks on this device only.
+    </p>
+
+    <label for="cfgUrl">Supabase project URL</label>
+    <input type="text" id="cfgUrl" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off" />
+
+    <label for="cfgKey">API key <span class="muted">(anon / publishable)</span></label>
+    <input type="text" id="cfgKey" placeholder="eyJ…  or  sb_publishable_…" autocomplete="off" />
+
+    <label for="cfgCode">List code <span class="muted">— use the SAME code on every device</span></label>
+    <div class="row">
+      <input type="text" id="cfgCode" placeholder="shared list code" autocomplete="off" />
+      <button class="mini" id="genCode" type="button">New</button>
+      <button class="mini" id="copyCode" type="button">Copy</button>
+    </div>
+
+    <div class="cfg-msg" id="cfgMsg"></div>
+
+    <div class="modal-actions">
+      <button class="ghost danger" id="disconnectBtn" type="button">Disconnect</button>
+      <span style="flex:1"></span>
+      <button class="ghost" id="closeModal" type="button">Close</button>
+      <button class="add-btn" id="connectBtn" type="button">Connect &amp; Sync</button>
+    </div>
+
+    <details class="help">
+      <summary>How do I set this up? (one-time, ~5 min)</summary>
+      <ol>
+        <li>Go to <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> and sign in (free — you can use your GitHub account).</li>
+        <li>Click <strong>New project</strong>, give it a name and database password, and wait ~2 min for it to start.</li>
+        <li>Open <strong>SQL Editor</strong> in the left sidebar, paste the snippet below, and click <strong>Run</strong>:
+          <pre>create table if not exists tasks (
+  id text primary key,
+  list_code text not null,
+  text text not null,
+  done boolean not null default false,
+  priority text not null default 'med',
+  due text not null default '',
+  created bigint,
+  position double precision not null default 0
+);
+create index if not exists tasks_list_code_idx
+  on tasks (list_code);
+alter table tasks enable row level security;
+create policy "public list access" on tasks
+  for all to anon using (true) with check (true);
+alter publication supabase_realtime add table tasks;</pre>
+        </li>
+        <li>Open <strong>Project Settings → API</strong>. Copy the <strong>Project URL</strong> and the <strong>anon / publishable</strong> key into the fields above.</li>
+        <li>Click <strong>New</strong> to make a list code, then <strong>Connect &amp; Sync</strong>.</li>
+        <li>On your other devices, open this app, enter the same URL, key, and list code — done!</li>
+      </ol>
+      <p style="margin-top:8px;color:var(--text-soft)">
+        Note: the list code acts like a password — anyone who has it (plus your URL &amp; key) can see this list, so keep it private.
+      </p>
+    </details>
+  </div>
+</div>
+
 <script>
 (function () {
   "use strict";
 
   const STORE_KEY = "tidy.tasks.v1";
   const THEME_KEY = "tidy.theme";
+  const CFG_KEY = "tidy.sync.v1";
+  const SUPABASE_CDN = "https://esm.sh/@supabase/supabase-js@2";
 
   const $ = (id) => document.getElementById(id);
   const list = $("list");
 
-  let tasks = load();
+  let tasks = [];
   let filter = "all";
   let search = "";
 
-  /* ---------- persistence ---------- */
-  function load() {
+  let mode = "local"; // "local" | "cloud"
+  let cfg = loadCfg(); // { url, key, code } | null
+  let sb = null;
+  let channel = null;
+  let pollTimer = null;
+  let isEditing = false;
+  let pendingRender = false;
+  let fetchTimer = null;
+
+  /* ================= persistence ================= */
+  function loadLocal() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      const arr = raw ? JSON.parse(raw) : [];
+      arr.forEach((t, i) => {
+        if (typeof t.position !== "number") t.position = i;
+      });
+      return arr;
     } catch (e) {
       return [];
     }
   }
-  function save() {
+  function saveLocal() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(tasks));
+    } catch (e) {}
+  }
+  function loadCfg() {
+    try {
+      const raw = localStorage.getItem(CFG_KEY);
+      const c = raw ? JSON.parse(raw) : null;
+      return c && c.url && c.key && c.code ? c : null;
     } catch (e) {
-      /* storage unavailable — app still works for the session */
+      return null;
     }
   }
+  function saveCfg() {
+    try {
+      if (cfg) localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+      else localStorage.removeItem(CFG_KEY);
+    } catch (e) {}
+  }
 
-  /* ---------- theme ---------- */
+  /* ================= theme ================= */
   function applyTheme(t) {
     document.documentElement.setAttribute("data-theme", t);
     $("themeBtn").textContent = t === "dark" ? "☀️" : "🌙";
@@ -389,32 +613,176 @@
     applyTheme(next);
   });
 
-  /* ---------- header date ---------- */
+  /* ================= header date ================= */
   $("dateLine").textContent = new Date().toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
 
-  /* ---------- helpers ---------- */
+  /* ================= helpers ================= */
   function todayStr() {
     const d = new Date();
-    return d.getFullYear() + "-" +
-      String(d.getMonth() + 1).padStart(2, "0") + "-" +
-      String(d.getDate()).padStart(2, "0");
+    return (
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0")
+    );
   }
   function fmtDue(due) {
     if (!due) return "";
     const today = todayStr();
     const d = new Date(due + "T00:00:00");
-    const label = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const label = d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
     if (due < today) return { text: "Overdue · " + label, overdue: true };
     if (due === today) return { text: "Due today", overdue: false };
     return { text: "Due " + label, overdue: false };
   }
-  const PRI_RANK = { high: 0, med: 1, low: 2 };
+  function uid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now() + "-" + Math.random().toString(16).slice(2);
+  }
+  function minPosition() {
+    return tasks.length ? Math.min.apply(null, tasks.map((t) => t.position)) : 0;
+  }
 
-  /* ---------- CRUD ---------- */
+  /* ================= sync status ================= */
+  function setStatus(state) {
+    const pill = $("statusPill");
+    pill.dataset.state = state;
+    const text = {
+      local: "Local only",
+      connecting: "Connecting…",
+      synced: "Synced",
+      error: "Sync error",
+    };
+    $("statusText").textContent = text[state] || "Local only";
+  }
+
+  /* ================= cloud layer ================= */
+  function taskToRow(t) {
+    return {
+      id: t.id,
+      list_code: cfg.code,
+      text: t.text,
+      done: t.done,
+      priority: t.priority,
+      due: t.due || "",
+      created: t.created,
+      position: t.position,
+    };
+  }
+  function rowToTask(r) {
+    return {
+      id: r.id,
+      text: r.text,
+      done: !!r.done,
+      priority: r.priority || "med",
+      due: r.due || "",
+      created: r.created,
+      position: typeof r.position === "number" ? r.position : 0,
+    };
+  }
+  async function fetchRows() {
+    const res = await sb
+      .from("tasks")
+      .select("*")
+      .eq("list_code", cfg.code)
+      .order("position", { ascending: true });
+    if (res.error) throw new Error(res.error.message);
+    return res.data || [];
+  }
+  async function connect() {
+    setStatus("connecting");
+    try {
+      const mod = await import(SUPABASE_CDN);
+      sb = mod.createClient(cfg.url, cfg.key);
+      const rows = await fetchRows();
+      if (rows.length === 0 && tasks.length > 0) {
+        // first time: lift the tasks already on this device into the cloud
+        const ins = await sb.from("tasks").insert(tasks.map(taskToRow));
+        if (ins.error) throw new Error(ins.error.message);
+      } else {
+        tasks = rows.map(rowToTask);
+      }
+      mode = "cloud";
+      subscribeRealtime();
+      startPoll();
+      setStatus("synced");
+      render();
+      return true;
+    } catch (e) {
+      sb = null;
+      mode = "local";
+      setStatus("error");
+      return e.message || String(e);
+    }
+  }
+  function teardown() {
+    if (channel && sb) sb.removeChannel(channel);
+    channel = null;
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    sb = null;
+  }
+  function subscribeRealtime() {
+    if (channel) sb.removeChannel(channel);
+    channel = sb
+      .channel("rt-" + cfg.code)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tasks",
+          filter: "list_code=eq." + cfg.code,
+        },
+        scheduleFetch
+      )
+      .subscribe();
+  }
+  function startPoll() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(scheduleFetch, 20000);
+  }
+  function scheduleFetch() {
+    if (fetchTimer) clearTimeout(fetchTimer);
+    fetchTimer = setTimeout(refreshCloud, 250);
+  }
+  async function refreshCloud() {
+    if (mode !== "cloud" || !sb) return;
+    try {
+      const rows = await fetchRows();
+      tasks = rows.map(rowToTask);
+      setStatus("synced");
+      if (isEditing) pendingRender = true;
+      else render();
+    } catch (e) {
+      setStatus("error");
+    }
+  }
+  async function cloudInsert(t) {
+    const res = await sb.from("tasks").insert(taskToRow(t));
+    if (res.error) setStatus("error");
+    else setStatus("synced");
+  }
+  async function cloudUpdate(id, fields) {
+    const res = await sb.from("tasks").update(fields).eq("id", id);
+    if (res.error) setStatus("error");
+    else setStatus("synced");
+  }
+  async function cloudDelete(ids) {
+    const res = await sb.from("tasks").delete().in("id", ids);
+    if (res.error) setStatus("error");
+    else setStatus("synced");
+  }
+
+  /* ================= CRUD ================= */
   function addTask() {
     const input = $("taskInput");
     const text = input.value.trim();
@@ -422,51 +790,73 @@
       input.focus();
       return;
     }
-    tasks.unshift({
-      id: Date.now() + "" + Math.random().toString(16).slice(2),
+    const t = {
+      id: uid(),
       text: text,
       done: false,
       priority: $("priInput").value,
       due: $("dateInput").value || "",
       created: Date.now(),
-    });
+      position: tasks.length ? minPosition() - 1 : 0,
+    };
+    tasks.push(t);
     input.value = "";
     $("dateInput").value = "";
     input.focus();
-    save();
     render();
+    if (mode === "cloud") cloudInsert(t);
+    else saveLocal();
   }
   function removeTask(id) {
     tasks = tasks.filter((t) => t.id !== id);
-    save();
     render();
+    if (mode === "cloud") cloudDelete([id]);
+    else saveLocal();
   }
   function toggleTask(id) {
     const t = tasks.find((x) => x.id === id);
-    if (t) t.done = !t.done;
-    save();
+    if (!t) return;
+    t.done = !t.done;
     render();
+    if (mode === "cloud") cloudUpdate(id, { done: t.done });
+    else saveLocal();
   }
   function editTask(id, text) {
     const t = tasks.find((x) => x.id === id);
     if (!t) return;
     const trimmed = text.trim();
-    if (trimmed) t.text = trimmed;
-    save();
+    if (!trimmed || trimmed === t.text) {
+      render();
+      return;
+    }
+    t.text = trimmed;
     render();
+    if (mode === "cloud") cloudUpdate(id, { text: trimmed });
+    else saveLocal();
+  }
+  function clearCompleted() {
+    const doneIds = tasks.filter((t) => t.done).map((t) => t.id);
+    if (doneIds.length === 0) return;
+    tasks = tasks.filter((t) => !t.done);
+    render();
+    if (mode === "cloud") cloudDelete(doneIds);
+    else saveLocal();
   }
 
-  /* ---------- filtering ---------- */
+  /* ================= filtering ================= */
   function visibleTasks() {
-    return tasks.filter((t) => {
-      if (filter === "active" && t.done) return false;
-      if (filter === "done" && !t.done) return false;
-      if (search && t.text.toLowerCase().indexOf(search) === -1) return false;
-      return true;
-    });
+    return tasks
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .filter((t) => {
+        if (filter === "active" && t.done) return false;
+        if (filter === "done" && !t.done) return false;
+        if (search && t.text.toLowerCase().indexOf(search) === -1) return false;
+        return true;
+      });
   }
 
-  /* ---------- drag reorder ---------- */
+  /* ================= drag reorder ================= */
   let dragId = null;
   function onDragStart(e) {
     dragId = e.currentTarget.dataset.id;
@@ -474,16 +864,15 @@
   }
   function onDragEnd(e) {
     e.currentTarget.classList.remove("dragging");
-    document.querySelectorAll(".task.over").forEach((n) =>
-      n.classList.remove("over")
-    );
+    document
+      .querySelectorAll(".task.over")
+      .forEach((n) => n.classList.remove("over"));
     dragId = null;
   }
   function onDragOver(e) {
     e.preventDefault();
-    if (e.currentTarget.dataset.id !== dragId) {
+    if (e.currentTarget.dataset.id !== dragId)
       e.currentTarget.classList.add("over");
-    }
   }
   function onDragLeave(e) {
     e.currentTarget.classList.remove("over");
@@ -493,16 +882,29 @@
     const targetId = e.currentTarget.dataset.id;
     e.currentTarget.classList.remove("over");
     if (!dragId || dragId === targetId) return;
-    const from = tasks.findIndex((t) => t.id === dragId);
-    const to = tasks.findIndex((t) => t.id === targetId);
-    if (from < 0 || to < 0) return;
-    const [moved] = tasks.splice(from, 1);
-    tasks.splice(to, 0, moved);
-    save();
+    const d = tasks.find((t) => t.id === dragId);
+    const t = tasks.find((t) => t.id === targetId);
+    if (!d || !t) return;
+
+    const others = tasks
+      .filter((x) => x.id !== dragId)
+      .sort((a, b) => a.position - b.position);
+    const ti = others.findIndex((x) => x.id === targetId);
+    let newPos;
+    if (d.position < t.position) {
+      const next = others[ti + 1];
+      newPos = next ? (t.position + next.position) / 2 : t.position + 1;
+    } else {
+      const prev = others[ti - 1];
+      newPos = prev ? (prev.position + t.position) / 2 : t.position - 1;
+    }
+    d.position = newPos;
     render();
+    if (mode === "cloud") cloudUpdate(d.id, { position: newPos });
+    else saveLocal();
   }
 
-  /* ---------- render ---------- */
+  /* ================= render ================= */
   function render() {
     const items = visibleTasks();
     list.innerHTML = "";
@@ -541,7 +943,6 @@
       title.className = "title";
       title.textContent = t.text;
       title.addEventListener("dblclick", () => startEdit(title, t.id));
-
       body.appendChild(title);
 
       const due = fmtDue(t.due);
@@ -561,13 +962,11 @@
       del.addEventListener("click", () => removeTask(t.id));
 
       li.append(check, dot, body, del);
-
       li.addEventListener("dragstart", onDragStart);
       li.addEventListener("dragend", onDragEnd);
       li.addEventListener("dragover", onDragOver);
       li.addEventListener("dragleave", onDragLeave);
       li.addEventListener("drop", onDrop);
-
       list.appendChild(li);
     });
 
@@ -577,6 +976,7 @@
   }
 
   function startEdit(titleEl, id) {
+    isEditing = true;
     titleEl.contentEditable = "true";
     titleEl.classList.add("editing");
     titleEl.focus();
@@ -587,10 +987,15 @@
     sel.addRange(range);
 
     function finish(commit) {
+      isEditing = false;
       titleEl.contentEditable = "false";
       titleEl.classList.remove("editing");
       if (commit) editTask(id, titleEl.textContent);
       else render();
+      if (pendingRender) {
+        pendingRender = false;
+        render();
+      }
     }
     titleEl.addEventListener("blur", () => finish(true), { once: true });
     titleEl.addEventListener("keydown", function onKey(e) {
@@ -604,7 +1009,80 @@
     });
   }
 
-  /* ---------- events ---------- */
+  /* ================= settings modal ================= */
+  function openModal() {
+    if (cfg) {
+      $("cfgUrl").value = cfg.url;
+      $("cfgKey").value = cfg.key;
+      $("cfgCode").value = cfg.code;
+    }
+    $("disconnectBtn").disabled = mode !== "cloud";
+    setMsg("", "");
+    $("overlay").hidden = false;
+  }
+  function closeModal() {
+    $("overlay").hidden = true;
+  }
+  function setMsg(text, kind) {
+    const el = $("cfgMsg");
+    el.textContent = text;
+    el.className = "cfg-msg" + (kind ? " " + kind : "");
+  }
+
+  $("statusPill").addEventListener("click", openModal);
+  $("closeModal").addEventListener("click", closeModal);
+  $("overlay").addEventListener("click", (e) => {
+    if (e.target === $("overlay")) closeModal();
+  });
+  $("genCode").addEventListener("click", () => {
+    $("cfgCode").value = uid();
+  });
+  $("copyCode").addEventListener("click", () => {
+    const v = $("cfgCode").value.trim();
+    if (!v) return;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(v).then(
+        () => setMsg("List code copied to clipboard.", "ok"),
+        () => {}
+      );
+    }
+  });
+  $("connectBtn").addEventListener("click", async () => {
+    const url = $("cfgUrl").value.trim().replace(/\/+$/, "");
+    const key = $("cfgKey").value.trim();
+    const code = $("cfgCode").value.trim();
+    if (!url || !key || !code) {
+      setMsg("Please fill in the URL, API key, and a list code.", "err");
+      return;
+    }
+    setMsg("Connecting…", "");
+    $("connectBtn").disabled = true;
+    cfg = { url: url, key: key, code: code };
+    const result = await connect();
+    $("connectBtn").disabled = false;
+    if (result === true) {
+      saveCfg();
+      $("disconnectBtn").disabled = false;
+      setMsg("Connected — your tasks now sync across devices.", "ok");
+      setTimeout(closeModal, 900);
+    } else {
+      cfg = loadCfg();
+      setMsg("Could not connect: " + result, "err");
+    }
+  });
+  $("disconnectBtn").addEventListener("click", () => {
+    teardown();
+    mode = "local";
+    cfg = null;
+    saveCfg();
+    saveLocal(); // keep current tasks on this device
+    setStatus("local");
+    $("disconnectBtn").disabled = true;
+    setMsg("Disconnected. Tasks are now stored on this device only.", "ok");
+    render();
+  });
+
+  /* ================= other events ================= */
   $("addBtn").addEventListener("click", addTask);
   $("taskInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") addTask();
@@ -613,11 +1091,7 @@
     search = e.target.value.trim().toLowerCase();
     render();
   });
-  $("clearBtn").addEventListener("click", () => {
-    tasks = tasks.filter((t) => !t.done);
-    save();
-    render();
-  });
+  $("clearBtn").addEventListener("click", clearCompleted);
   document.querySelectorAll(".filter").forEach((btn) => {
     btn.addEventListener("click", () => {
       document
@@ -628,8 +1102,23 @@
       render();
     });
   });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("overlay").hidden) closeModal();
+  });
+  window.addEventListener("focus", () => {
+    if (mode === "cloud") scheduleFetch();
+  });
 
+  /* ================= startup ================= */
+  tasks = loadLocal();
   render();
+  if (cfg) {
+    connect().then((result) => {
+      if (result !== true) setStatus("error");
+    });
+  } else {
+    setStatus("local");
+  }
 })();
 </script>
 </body>
